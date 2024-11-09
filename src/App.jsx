@@ -21,7 +21,7 @@ function App() {
   onMount(checkUserSignedIn);
 
   createEffect(() => {
-    const authListener = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
       if (session?.user) {
         setUser(session.user);
         setCurrentPage('homePage');
@@ -32,7 +32,7 @@ function App() {
     });
 
     return () => {
-      authListener.data.unsubscribe();
+      authListener.unsubscribe();
     };
   });
 
@@ -150,8 +150,12 @@ function App() {
                   class={`w-full px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-300 ease-in-out transform hover:scale-105 cursor-pointer ${loading() ? 'opacity-50 cursor-not-allowed' : ''}`}
                   disabled={loading()}
                 >
-                  <Show when={loading()}>Generating...</Show>
-                  <Show when={!loading()}>Generate Image</Show>
+                  <Show when={loading()}>
+                    <span class="animate-pulse">Generating...</span>
+                  </Show>
+                  <Show when={!loading()}>
+                    Generate Image
+                  </Show>
                 </button>
               </div>
             </div>
