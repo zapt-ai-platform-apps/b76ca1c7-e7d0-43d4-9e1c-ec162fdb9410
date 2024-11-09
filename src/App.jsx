@@ -21,7 +21,7 @@ function App() {
   onMount(checkUserSignedIn);
 
   createEffect(() => {
-    const authListener = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
       if (session?.user) {
         setUser(session.user);
         setCurrentPage('homePage');
@@ -32,7 +32,7 @@ function App() {
     });
 
     return () => {
-      authListener.data.unsubscribe();
+      authListener.unsubscribe();
     };
   });
 
@@ -42,15 +42,60 @@ function App() {
     setCurrentPage('login');
   };
 
+  const fetchGeneratedImages = async () => {
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/getPrompts', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setGeneratedImages(data);
+      } else {
+        console.error('Error fetching images:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching images:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  createEffect(() => {
+    if (user()) {
+      fetchGeneratedImages();
+    }
+  });
+
   const generateImage = async () => {
     if (!textInput()) return;
     setLoading(true);
     try {
-      const result = await createEvent('generate_image', {
+      const imageUrl = await createEvent('generate_image', {
         prompt: textInput()
       });
-      setGeneratedImages([result, ...generatedImages()]);
-      setTextInput('');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/savePrompt', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ prompt: textInput(), imageUrl })
+      });
+      if (response.ok) {
+        const savedPrompt = await response.json();
+        setGeneratedImages([savedPrompt, ...generatedImages()]);
+        setTextInput('');
+      } else {
+        console.error('Error saving image:', response.statusText);
+      }
+
     } catch (error) {
       console.error('Error generating image:', error);
     } finally {
@@ -108,25 +153,31 @@ function App() {
                   value={textInput()}
                   onInput={(e) => setTextInput(e.target.value)}
                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent box-border"
+                  disabled={loading()}
                 />
                 <button
                   onClick={generateImage}
-                  class={`w-full px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-300 ease-in-out transform hover:scale-105 cursor-pointer ${loading() ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  disabled={loading()}
+                  class={`w-full px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-300 ease-in-out transform hover:scale-105 cursor-pointer ${loading() || !textInput() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={loading() || !textInput()}
                 >
-                  <Show when={loading()}>Generating...</Show>
-                  <Show when={!loading()}>Generate Image</Show>
+                  <Show when={loading()}>
+                    Generating...
+                  </Show>
+                  <Show when={!loading()}>
+                    Generate Image
+                  </Show>
                 </button>
               </div>
             </div>
 
             <div>
               <h2 class="text-2xl font-bold mb-4 text-green-600">Generated Images</h2>
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto" style="max-height: calc(100vh - 300px);">
                 <For each={generatedImages()}>
-                  {(image) => (
+                  {(item) => (
                     <div class="bg-white p-4 rounded-lg shadow-md">
-                      <img src={image} alt="Generated" class="w-full h-48 object-cover rounded-md" />
+                      <p class="text-sm text-gray-600 mb-2">{item.prompt}</p>
+                      <img src={item.imageUrl} alt="Generated" class="w-full h-48 object-cover rounded-md" />
                     </div>
                   )}
                 </For>

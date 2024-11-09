@@ -2,25 +2,26 @@
 
 ## Overview
 
-New App is a user-friendly application that enables users to generate images from text. Users can enter any text prompt, and the app will generate an image based on that prompt using AI. This allows users to unleash their creativity and bring their ideas to life visually.
+New App is an application that allows users to create images from text prompts using AI. Users can sign in using ZAPT authentication and generate images based on any text they input.
 
 ## User Journeys
 
 ### 1. Sign In with ZAPT
 
 1. User opens the app and is presented with a sign-in screen.
-2. User clicks on "Sign in with ZAPT" and uses their preferred method (email, Google, Facebook, or Apple) to sign in.
-3. Upon successful authentication, the user is redirected to the home page.
+2. "Sign in with ZAPT" is displayed above the authentication component.
+3. User clicks on their preferred sign-in method (email, Google, Facebook, or Apple).
+4. Upon successful authentication, the user is redirected to the home page.
 
 ### 2. Generating an Image from Text
 
-1. On the home page, the user sees a section labeled "Generate Image from Text."
+1. On the home page, the user sees a section labeled "Generate Image from Text".
 2. User enters a text prompt into the input field.
 3. User clicks the "Generate Image" button.
-4. The app sends a request to generate an image based on the entered text.
-5. While the image is being generated, a loading indicator is displayed.
-6. Once the image is generated, it is displayed on the page.
-7. User can view and download the generated image.
+4. The app displays a loading indicator while the image is being generated.
+5. Once the image is generated, it is displayed on the page.
+6. The generated image is added to the gallery of generated images.
+7. User can view and download the generated images.
 
 ### 3. Viewing Generated Images
 

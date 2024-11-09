@@ -1,3 +1,7 @@
+import { prompts } from '../drizzle/schema.js';
+import { authenticateUser } from "./_apiUtils.js"
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
 import * as Sentry from "@sentry/node";
 
 Sentry.init({
@@ -11,11 +15,6 @@ Sentry.init({
   }
 });
 
-import { prompts } from '../drizzle/schema.js';
-import { authenticateUser } from "./_apiUtils.js"
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
-
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') {
@@ -25,10 +24,10 @@ export default async function handler(req, res) {
 
     const user = await authenticateUser(req);
 
-    const { prompt } = req.body;
+    const { prompt, imageUrl } = req.body;
 
-    if (!prompt) {
-      return res.status(400).json({ error: 'Prompt is required' });
+    if (!prompt || !imageUrl) {
+      return res.status(400).json({ error: 'Prompt and imageUrl are required' });
     }
     
     const sql = neon(process.env.NEON_DB_URL);
@@ -36,6 +35,7 @@ export default async function handler(req, res) {
 
     const result = await db.insert(prompts).values({ 
       prompt,
+      imageUrl,
       userId: user.id
     }).returning();
 

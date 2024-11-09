@@ -31,11 +31,12 @@ export default async function handler(req, res) {
     const result = await db.select()
       .from(prompts)
       .where(eq(prompts.userId, user.id))
-      .limit(10);
+      .orderBy(prompts.createdAt.desc())
+      .limit(20);
 
     res.status(200).json(result);
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error fetching prompts:', error);
     Sentry.captureException(error);
     if (error.message.includes('Authorization') || error.message.includes('token')) {
       res.status(401).json({ error: 'Authentication failed' });
