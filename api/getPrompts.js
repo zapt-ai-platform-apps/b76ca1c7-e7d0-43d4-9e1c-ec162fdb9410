@@ -1,8 +1,3 @@
-import { prompts } from '../drizzle/schema.js';
-import { authenticateUser } from "./_apiUtils.js"
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
-import { eq } from 'drizzle-orm';
 import * as Sentry from "@sentry/node";
 
 Sentry.init({
@@ -16,6 +11,12 @@ Sentry.init({
   }
 });
 
+import { prompts } from '../drizzle/schema.js';
+import { authenticateUser } from "./_apiUtils.js";
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { eq } from 'drizzle-orm';
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'GET') {
@@ -24,7 +25,7 @@ export default async function handler(req, res) {
     }
 
     const user = await authenticateUser(req);
-    
+
     const sql = neon(process.env.NEON_DB_URL);
     const db = drizzle(sql);
 
@@ -32,11 +33,11 @@ export default async function handler(req, res) {
       .from(prompts)
       .where(eq(prompts.userId, user.id))
       .orderBy(prompts.createdAt.desc())
-      .limit(20);
+      .limit(10);
 
     res.status(200).json(result);
   } catch (error) {
-    console.error('Error fetching prompts:', error);
+    console.error('Error:', error);
     Sentry.captureException(error);
     if (error.message.includes('Authorization') || error.message.includes('token')) {
       res.status(401).json({ error: 'Authentication failed' });

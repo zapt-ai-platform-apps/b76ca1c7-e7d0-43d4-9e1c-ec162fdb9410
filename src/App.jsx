@@ -7,7 +7,7 @@ function App() {
   const [user, setUser] = createSignal(null);
   const [currentPage, setCurrentPage] = createSignal('login');
   const [loading, setLoading] = createSignal(false);
-  const [generatedImages, setGeneratedImages] = createSignal([]);
+  const [prompts, setPrompts] = createSignal([]);
   const [textInput, setTextInput] = createSignal('');
 
   const checkUserSignedIn = async () => {
@@ -21,7 +21,7 @@ function App() {
   onMount(checkUserSignedIn);
 
   createEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
+    const authListener = supabase.auth.onAuthStateChange((_, session) => {
       if (session?.user) {
         setUser(session.user);
         setCurrentPage('homePage');
@@ -32,7 +32,7 @@ function App() {
     });
 
     return () => {
-      authListener.unsubscribe();
+      authListener.data.unsubscribe();
     };
   });
 
@@ -42,35 +42,6 @@ function App() {
     setCurrentPage('login');
   };
 
-  const fetchGeneratedImages = async () => {
-    setLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch('/api/getPrompts', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setGeneratedImages(data);
-      } else {
-        console.error('Error fetching images:', response.statusText);
-      }
-    } catch (error) {
-      console.error('Error fetching images:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  createEffect(() => {
-    if (user()) {
-      fetchGeneratedImages();
-    }
-  });
-
   const generateImage = async () => {
     if (!textInput()) return;
     setLoading(true);
@@ -79,29 +50,49 @@ function App() {
         prompt: textInput()
       });
 
+      // Save prompt and imageUrl to backend
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch('/api/savePrompt', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: textInput(), imageUrl })
+        body: JSON.stringify({ prompt: textInput(), imageUrl }),
       });
+
       if (response.ok) {
-        const savedPrompt = await response.json();
-        setGeneratedImages([savedPrompt, ...generatedImages()]);
+        setPrompts([{ prompt: textInput(), imageUrl }, ...prompts()]);
         setTextInput('');
       } else {
-        console.error('Error saving image:', response.statusText);
+        console.error('Error saving prompt and image');
       }
-
     } catch (error) {
       console.error('Error generating image:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  const fetchPrompts = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch('/api/getPrompts', {
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`
+      }
+    });
+    if (response.ok) {
+      const data = await response.json();
+      setPrompts(data);
+    } else {
+      console.error('Error fetching prompts:', response.statusText);
+    }
+  };
+
+  createEffect(() => {
+    if (!user()) return;
+    fetchPrompts();
+  });
 
   return (
     <div class="min-h-screen bg-gradient-to-br from-green-100 to-blue-100 p-4 text-gray-800">
@@ -132,7 +123,7 @@ function App() {
           </div>
         }
       >
-        <div class="max-w-6xl mx-auto h-full">
+        <div class="max-w-6xl mx-auto">
           <div class="flex justify-between items-center mb-8">
             <h1 class="text-4xl font-bold text-green-600">New App</h1>
             <button
@@ -153,31 +144,26 @@ function App() {
                   value={textInput()}
                   onInput={(e) => setTextInput(e.target.value)}
                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent box-border"
-                  disabled={loading()}
                 />
                 <button
                   onClick={generateImage}
-                  class={`w-full px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-300 ease-in-out transform hover:scale-105 cursor-pointer ${loading() || !textInput() ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  disabled={loading() || !textInput()}
+                  class={`w-full px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-300 ease-in-out transform hover:scale-105 cursor-pointer ${loading() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={loading()}
                 >
-                  <Show when={loading()}>
-                    Generating...
-                  </Show>
-                  <Show when={!loading()}>
-                    Generate Image
-                  </Show>
+                  <Show when={loading()}>Generating...</Show>
+                  <Show when={!loading()}>Generate Image</Show>
                 </button>
               </div>
             </div>
 
             <div>
               <h2 class="text-2xl font-bold mb-4 text-green-600">Generated Images</h2>
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto" style="max-height: calc(100vh - 300px);">
-                <For each={generatedImages()}>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <For each={prompts()}>
                   {(item) => (
                     <div class="bg-white p-4 rounded-lg shadow-md">
-                      <p class="text-sm text-gray-600 mb-2">{item.prompt}</p>
-                      <img src={item.imageUrl} alt="Generated" class="w-full h-48 object-cover rounded-md" />
+                      <img src={item.imageUrl} alt={item.prompt} class="w-full h-48 object-cover rounded-md mb-2" />
+                      <p class="text-gray-700">{item.prompt}</p>
                     </div>
                   )}
                 </For>
